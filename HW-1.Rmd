@@ -15,6 +15,7 @@ library(dplyr)
 # For read_csv() command, which is an improved version of base R's read.csv()
 library(readr) 
 library(lubridate)
+library(ggthemes)
 
 # Load data sets. Note this assumes this .Rmd files is in the same directory as
 # the .csv files.
@@ -35,11 +36,11 @@ states <- read_csv("data/states.csv")
 
 Please indicate
 
-* Who you collaborated with:
-* Roughly how much time you spent on this HW so far:
-* The URL of the RPubs published URL [here](https://www.nhl.com/).
-* What gave you the most trouble:
-* Any comments you have:
+* Who you collaborated with: Trisha
+* Roughly how much time you spent on this HW so far: 9 hours
+* The URL of the RPubs published URL [here](http://rpubs.com/connormccormick/HW1).
+* What gave you the most trouble: Flight paths
+* Any comments you have: I am still somewhat confused on how to use ifelse statements.  I have used if statements a lot in STATA, which work differently, so that might causing me some difficulties.
 
 
 
@@ -62,7 +63,7 @@ flights_per_day <- flights %>%
   group_by(date) %>% 
   tally() %>% 
   rename(flights_per_day = n)
-flights_per_day
+
 
 delays_per_day <- flights %>% 
   filter(!is.na(dep_delay)) %>%
@@ -71,10 +72,10 @@ delays_per_day <- flights %>%
   filter(actual_delay==TRUE) %>%
   tally() %>% 
   rename(delays_per_day = n)
-delays_per_day
+
 
 delays_per_day <- left_join(delays_per_day, flights_per_day, by="date") %>%
-  mutate(prop = round(delays_per_day/flights_per_day,3))
+  mutate(prop = (delays_per_day/flights_per_day))
   
 
 ggplot(delays_per_day, aes(x=date, y=prop)) +
@@ -83,9 +84,12 @@ ggplot(delays_per_day, aes(x=date, y=prop)) +
   labs(title="Seasonality", x='Date', y='Proportion of Cancelled Flights')
 
 
+
 ```
 
 
+**Interpretation** 
+The delays per day show a seasonal increase around the summer months and the winter holidays. Looking at the trend line, it is clear that there is an increase in delays greater than 30 minutes at these two periods.
 
 
 
@@ -96,31 +100,26 @@ they tend to have more room.  Which airlines should these people favor?
 
 ```{r, echo=FALSE, fig.width=12, fig.height=6}
 
-oldplanes <- planes %>%
-  select(plane, year) %>%
-  arrange(year) 
-
 oldairlines <- flights %>%
   select(carrier, plane) %>%
   arrange (carrier)
 
-oldplanes <- oldairlines %>%
-  left_join(oldplanes, oldairlines, by = "plane") %>%
-  filter(!is.na(year))
-
-oldplanes <- oldplanes %>%
-    group_by(carrier) %>%
-    summarize(meanyear=mean(year), medianyear=median(year))
+planeage <- oldairlines %>%
+  left_join(planes, oldairlines, by = "plane") %>%
+  filter(!is.na(year)) %>%
+  group_by(plane, carrier) %>% 
+  summarize(year = mean(year)) 
   
-
-ggplot(data=oldplanes, aes(x=meanyear, y=medianyear, fill = carrier)) +
-  geom_point() 
-
-
+  ggplot(planeage, aes(x=carrier, y=year)) +
+  geom_boxplot(fill="aliceblue") +
+  geom_jitter(color = "darkblue", alpha = I(.3), size = 1) +
+  labs(title="Plane Age by Carrier", x='Carrier', y='Year Built') +
+  theme_minimal()
 
 ```
 
-
+**Interpretation** 
+The two carriers with the oldest set of airplanes is MQ and AA, which are American Eagle and American Airlines.  Though MQ has the oldest planes, there are only two physical planes in the data set. That makes American Airlines the oldest carrier with a substantial number of planes.   
 
 
 
@@ -147,30 +146,33 @@ southwest <- left_join(southwest, airport_local, by = c("dest"="iata")) %>%
 
 totalflights <- southwest %>% 
   group_by(state) %>% 
+  filter(!is.na(state)) %>%
   tally() %>% 
   rename(totalflights = n)
-totalflights
+
 
 flightpaths <- southwest %>% 
   group_by(state, flight) %>% 
   summarize(length(state)) %>%
+  filter(!is.na(state)) %>%
   tally() %>% 
   rename(flightpaths = n)
-flightpaths
+
 
 
 ggplot(totalflights, aes(x=state, y=totalflights)) +
-  geom_bar(stat="identity", position="dodge") +
+  geom_bar(stat="identity", position="dodge", fill="violetred4") +
   labs(title="Flights by State", x="State", y="Number of Flights")
 
 ggplot(flightpaths, aes(x=state, y=flightpaths)) +
-  geom_bar(stat="identity", position="dodge") +
+  geom_bar(stat="identity", position="dodge", fill="violetred4") +
   labs(title="Flightpaths by State", x="State", y="Number of Flightpaths")
 
 
 ```
 
-
+**Interpretation** 
+For both flights and flight paths, there were the most flights within Texas for flights to and from Houston.  The majority of the remaining flights and flightpaths are within the south, like Florida, Louisiana and Oklahoma.  California and Illinois also has a fair amount of flights to it.  
 
 
 
@@ -184,15 +186,11 @@ function from the `lubridate` package.
 
 airport_local <- left_join(airports, states, by="state")
 
-fullflight <- left_join(airport_local, flights, by=c("iata" = "dest")) %>%
-    filter(!is.na(plane) & cancelled==0)
-
-houston <- fullflight %>%
+houston <- left_join(airport_local, flights, by=c("iata" = "dest")) %>%
+  filter(!is.na(plane) & cancelled==0) %>%
   select(carrier, iata, region, date) %>%
   group_by(carrier, region) %>%
-  arrange(carrier)
-
-houston <- houston %>%
+  arrange(carrier) %>%
   mutate(month=month(date)) %>%
   filter(month==7)
 
@@ -200,21 +198,26 @@ carrier_totals <- houston %>%
   group_by(carrier) %>% 
   tally() %>% 
   rename(carrier_totals = n)
-carrier_totals
+
 
 carrier_region <- houston %>% 
   filter(!is.na(region)) %>%
   group_by(carrier, region) %>% 
   tally() %>% 
   rename(carrier_region = n)
-carrier_region
+
 
 carrier_region <- left_join(carrier_region, carrier_totals, by="carrier") %>%
-  mutate(prop = round(carrier_region/carrier_totals,3))
+  mutate(prop = (carrier_region/carrier_totals))
   
-ggplot(carrier_region, aes(x=region, y=prop, fill=carrier)) +
-  geom_bar(stat="identity", position="dodge")+
-  facet_wrap(~carrier)
+ggplot(carrier_region, aes(x=region, y=prop)) +
+  geom_bar(stat="identity", position="dodge", fill="violetred4") +
+  facet_wrap(~carrier) +
+  labs(title="Proportion of Flights per Region by Carrier", x="Region", y="Proportion of Flights") +
+  theme_dark()
 
 
 ```
+
+**Interpretation** 
+The majority of flights from Texas remain within the south.  As we saw earlier, the majority of flights are just within Texas to begin with.  For example, though American Airlines is an international carrier, its largest hub is in Dallas, so that is likely why American Airlines only flies within the south from Houston to Dallas.
