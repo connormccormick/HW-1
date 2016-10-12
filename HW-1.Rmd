@@ -16,6 +16,8 @@ library(dplyr)
 library(readr) 
 library(lubridate)
 library(ggthemes)
+library(forcats)
+
 
 # Load data sets. Note this assumes this .Rmd files is in the same directory as
 # the .csv files.
@@ -79,9 +81,10 @@ delays_per_day <- left_join(delays_per_day, flights_per_day, by="date") %>%
   
 
 ggplot(delays_per_day, aes(x=date, y=prop)) +
-  geom_point() +
-  geom_smooth(se=FALSE) +
-  labs(title="Seasonality", x='Date', y='Proportion of Cancelled Flights')
+  geom_point(color = "darkblue") +
+  geom_smooth(se=FALSE, color = "firebrick") +
+  labs(title="Seasonality", x='Date', y='Proportion of Cancelled Flights') +
+  coord_cartesian(ylim=c(0, 0.25)) 
 
 
 
@@ -100,19 +103,15 @@ they tend to have more room.  Which airlines should these people favor?
 
 ```{r, echo=FALSE, fig.width=12, fig.height=6}
 
-oldairlines <- flights %>%
-  select(carrier, plane) %>%
-  arrange (carrier)
-
-planeage <- oldairlines %>%
-  left_join(planes, oldairlines, by = "plane") %>%
+planeage <- flights %>%
+  left_join(planes, by = "plane") %>%
   filter(!is.na(year)) %>%
   group_by(plane, carrier) %>% 
   summarize(year = mean(year)) 
   
-  ggplot(planeage, aes(x=carrier, y=year)) +
+ggplot(planeage, aes(x=fct_reorder(f=carrier, x=year, fun=median, na.rm=TRUE), y=year)) +
   geom_boxplot(fill="aliceblue") +
-  geom_jitter(color = "darkblue", alpha = I(.3), size = 1) +
+  geom_jitter(color = "darkblue", alpha = I(.3), size = 1, width = .5) +
   labs(title="Plane Age by Carrier", x='Carrier', y='Year Built') +
   theme_minimal()
 
@@ -160,11 +159,11 @@ flightpaths <- southwest %>%
 
 
 
-ggplot(totalflights, aes(x=state, y=totalflights)) +
+ggplot(totalflights, aes(x=fct_reorder(state, totalflights, median, na.rm=TRUE), y=totalflights)) +
   geom_bar(stat="identity", position="dodge", fill="violetred4") +
   labs(title="Flights by State", x="State", y="Number of Flights")
 
-ggplot(flightpaths, aes(x=state, y=flightpaths)) +
+ggplot(flightpaths, aes(x=fct_reorder(state, flightpaths, median, na.rm=TRUE), y=flightpaths)) +
   geom_bar(stat="identity", position="dodge", fill="violetred4") +
   labs(title="Flightpaths by State", x="State", y="Number of Flightpaths")
 
@@ -172,7 +171,8 @@ ggplot(flightpaths, aes(x=state, y=flightpaths)) +
 ```
 
 **Interpretation** 
-For both flights and flight paths, there were the most flights within Texas for flights to and from Houston.  The majority of the remaining flights and flightpaths are within the south, like Florida, Louisiana and Oklahoma.  California and Illinois also has a fair amount of flights to it.  
+For both flights and flight paths, there were the most flights within Texas for flights to and from Houston.  The majority of the remaining flights and flightpaths are within the south, like Florida, Louisiana and Oklahoma.  California and Illinois also has a fair amount of flights to it.  I also removed cancelled flights from my analysis since those cancelled flights were never completed.    
+
 
 
 
@@ -213,9 +213,7 @@ carrier_region <- left_join(carrier_region, carrier_totals, by="carrier") %>%
 ggplot(carrier_region, aes(x=region, y=prop)) +
   geom_bar(stat="identity", position="dodge", fill="violetred4") +
   facet_wrap(~carrier) +
-  labs(title="Proportion of Flights per Region by Carrier", x="Region", y="Proportion of Flights") +
-  theme_dark()
-
+  labs(title="Proportion of Flights per Region by Carrier", x="Region", y="Proportion of Flights") 
 
 ```
 
